@@ -1,14 +1,15 @@
 # VS Code Extension Logger
 
-A TypeScript library to make logging simpler for VS Code extension authors.
+A TypeScript library to make logging simpler for VS Code extension authors. Uses VS Code's native LogOutputChannel API for optimal integration.
 
 ## Features
 
 - 🎯 **Simple API** - Easy to use logging interface
-- 📊 **Multiple Log Levels** - ERROR, WARN, INFO, DEBUG
-- 🔗 **VS Code Integration** - Optional integration with VS Code Output Channel
+- 📊 **Complete Log Level Support** - Off, Error, Warn, Info, Debug, Trace
+- 🔗 **Native VS Code Integration** - Uses LogOutputChannel for proper VS Code integration
 - 📦 **TypeScript First** - Built with TypeScript for better developer experience
 - 🎨 **Flexible** - Works both inside and outside VS Code environment
+- 📍 **Structured Logging** - Leverages VS Code's built-in log formatting and filtering
 
 ## Installation
 
@@ -21,22 +22,26 @@ npm install @timheuer/vscode-ext-logger
 ```typescript
 import { Logger, LogLevel } from '@timheuer/vscode-ext-logger';
 
-// Create a logger
+// Create a logger with VS Code LogOutputChannel integration
 const logger = new Logger({
   name: 'MyExtension',
-  level: LogLevel.INFO,
-  outputChannel: true // Creates VS Code output channel if available
+  level: LogLevel.Info,
+  outputChannel: true  // Enable VS Code LogOutputChannel integration
 });
 
-// Use the logger
+// Use the logger - messages appear in VS Code's Output panel
 logger.info('Extension activated');
 logger.warn('This is a warning');
 logger.error('Something went wrong');
-logger.debug('Debug information'); // Won't show with INFO level
+logger.debug('Debug information'); // Won't show with Info level
+logger.trace('Detailed trace info'); // Won't show with Info level
 
 // Change log level
-logger.setLevel(LogLevel.DEBUG);
+logger.setLevel(LogLevel.Debug);
 logger.debug('Now this will show');
+
+// Disable all logging
+logger.setLevel(LogLevel.Off);
 ```
 
 ## API Reference
@@ -48,8 +53,8 @@ logger.debug('Now this will show');
 ```typescript
 interface LoggerOptions {
   name?: string;        // Logger name (default: 'Extension')
-  level?: LogLevel;     // Log level (default: LogLevel.INFO)
-  outputChannel?: boolean; // Create VS Code output channel (default: false)
+  level?: LogLevel;     // Log level (default: LogLevel.Info)
+  outputChannel?: boolean; // Create VS Code LogOutputChannel (default: false)
 }
 ```
 
@@ -57,19 +62,22 @@ interface LoggerOptions {
 
 ```typescript
 enum LogLevel {
-  ERROR = 0,
-  WARN = 1,
-  INFO = 2,
-  DEBUG = 3,
+  Off = 0,    // No logging
+  Error = 1,  // Only errors
+  Warn = 2,   // Errors and warnings
+  Info = 3,   // Errors, warnings, and info (default)
+  Debug = 4,  // All except trace
+  Trace = 5,  // All log levels
 }
 ```
 
 #### Methods
 
-- `error(message: string, ...args: any[]): void` - Log error message
-- `warn(message: string, ...args: any[]): void` - Log warning message
-- `info(message: string, ...args: any[]): void` - Log info message
-- `debug(message: string, ...args: any[]): void` - Log debug message
+- `error(message: string, ...args: unknown[]): void` - Log error message
+- `warn(message: string, ...args: unknown[]): void` - Log warning message
+- `info(message: string, ...args: unknown[]): void` - Log info message
+- `debug(message: string, ...args: unknown[]): void` - Log debug message
+- `trace(message: string, ...args: unknown[]): void` - Log trace message
 - `setLevel(level: LogLevel): void` - Set the log level
 - `getLevel(): LogLevel` - Get current log level
 - `show(): void` - Show the VS Code output channel (if available)
@@ -80,19 +88,31 @@ enum LogLevel {
 ```typescript
 import { createLogger, logger } from '@timheuer/vscode-ext-logger';
 
-// Use the default logger
+// Use the default logger (no VS Code integration)
 logger.info('Using default logger');
 
-// Create a custom logger
+// Create a custom logger with VS Code integration
 const myLogger = createLogger({
   name: 'MyComponent',
-  level: LogLevel.DEBUG
+  level: LogLevel.Debug,
+  outputChannel: true  // This creates the LogOutputChannel
+});
+
+// Create a simple logger without VS Code integration  
+const simpleLogger = createLogger({
+  name: 'SimpleComponent'
+  // outputChannel defaults to false, so uses console.log fallback
 });
 ```
 
-## VS Code Integration
+## VS Code LogOutputChannel Integration
 
-When `outputChannel: true` is set and the library is running in a VS Code environment, logs will also be sent to a VS Code Output Channel. This makes it easy to view logs directly in VS Code.
+When `outputChannel: true` is set and the library is running in a VS Code environment, logs are sent to VS Code's native LogOutputChannel. This provides:
+
+- **Structured logging** with proper log levels
+- **Built-in filtering** by log level in VS Code's Output panel
+- **Timestamps** and formatting handled by VS Code
+- **Performance optimized** logging
 
 ```typescript
 const logger = new Logger({
@@ -100,16 +120,58 @@ const logger = new Logger({
   outputChannel: true
 });
 
-// Show the output channel
+// Show the output channel in VS Code
 logger.show();
+
+// Logs appear with proper formatting and colors in VS Code's Output panel
+logger.error('This appears in red');
+logger.warn('This appears in yellow'); 
+logger.info('This appears in blue');
+logger.debug('This appears in gray');
+logger.trace('This appears in light gray');
 ```
 
 ## Environment Compatibility
 
 This library works both inside and outside VS Code environments:
 
-- **Inside VS Code**: Full functionality including output channel integration
-- **Outside VS Code**: Console logging only (graceful degradation)
+- **Inside VS Code**: Uses LogOutputChannel for structured logging with proper formatting and filtering
+- **Outside VS Code**: Falls back to console.log for basic logging (graceful degradation)
+
+When `outputChannel: true` is set:
+
+- **In VS Code**: Creates and uses a LogOutputChannel
+- **Outside VS Code**: Falls back to console.log with `[LoggerName]` prefix
+
+## Advanced Usage
+
+### Disable Logging Completely
+
+```typescript
+logger.setLevel(LogLevel.Off);
+// No logs will be output regardless of method called
+```
+
+### Structured Logging with Objects
+
+```typescript
+logger.info('User action completed', { 
+  userId: '123', 
+  action: 'file_save',
+  duration: 150 
+});
+// Output: User action completed {"userId":"123","action":"file_save","duration":150}
+```
+
+### Multiple Loggers for Different Components
+
+```typescript
+const apiLogger = createLogger({ name: 'API', level: LogLevel.Debug });
+const uiLogger = createLogger({ name: 'UI', level: LogLevel.Info });
+
+apiLogger.debug('API request started');  // Shows in VS Code with [API] prefix
+uiLogger.info('UI component mounted');   // Shows in VS Code with [UI] prefix
+```
 
 ## Development
 
@@ -120,7 +182,7 @@ npm install
 # Build the library
 npm run build
 
-# Run tests
+# Run tests (located in /test directory)
 npm test
 
 # Run tests in watch mode
@@ -131,6 +193,22 @@ npm run lint
 
 # Fix linting issues
 npm run lint:fix
+```
+
+## Project Structure
+
+```text
+├── src/
+│   └── index.ts        # Main library code
+├── test/               # Test directory
+│   └── index.test.ts   # Test suite  
+├── dist/               # Built files (CJS + ESM)
+├── package.json        # Package configuration
+├── tsconfig.json       # TypeScript config
+├── jest.config.js      # Jest test config
+├── .eslintrc.js        # ESLint config
+├── .prettierrc         # Prettier config
+└── README.md           # Documentation
 ```
 
 ## Contributing
