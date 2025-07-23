@@ -48,7 +48,7 @@ function updateChangelog() {
     // Get the current version from nbgv
     const nbgvOutput = execSync('nbgv get-version --format json', { encoding: 'utf8' });
     const versionInfo = JSON.parse(nbgvOutput);
-    const version = versionInfo.SimpleVersion || versionInfo.MajorMinorVersion;
+    const version = versionInfo.MajorMinorVersion || versionInfo.SimpleVersion || versionInfo.Version;
     
     console.log(`Updating changelog for version ${version}`);
 

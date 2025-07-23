@@ -24,23 +24,35 @@ function postPublish() {
 
   if (isCI()) {
     console.log('🤖 Running in CI environment - updating changelog and tagging');
-    // In CI, update changelog and tag, but let workflow handle the git push
-    execSync('npm run update-changelog-only', { stdio: 'inherit' });
     
     // Configure git for CI
     try {
       execSync('git config user.name "github-actions[bot]"', { stdio: 'pipe' });
       execSync('git config user.email "github-actions[bot]@users.noreply.github.com"', { stdio: 'pipe' });
       
-      // Get version for commit message
-      const version = execSync('npx nbgv get-version -v SimpleVersion', { encoding: 'utf8' }).trim();
+      // Get the version info from nbgv
+      const versionOutput = execSync('npx nbgv get-version --format json', { encoding: 'utf8' });
+      const versionInfo = JSON.parse(versionOutput);
+      
+      // Use the actual version that was published (MajorMinorVersion or SimpleVersion)
+      const version = versionInfo.MajorMinorVersion || versionInfo.SimpleVersion || versionInfo.Version;
+      console.log(`📋 Working with published version: v${version}`);
+      console.log(`🔍 Version info:`, {
+        SimpleVersion: versionInfo.SimpleVersion,
+        MajorMinorVersion: versionInfo.MajorMinorVersion,
+        Version: versionInfo.Version
+      });
+      
+      // Create the tag FIRST with the current version (before changelog commit)
+      execSync(`git tag v${version}`, { stdio: 'inherit' });
+      console.log(`🏷️  Created tag v${version}`);
+      
+      // Now update changelog
+      execSync('npm run update-changelog-only', { stdio: 'inherit' });
       
       // Stage and commit changelog
       execSync('git add CHANGELOG.md', { stdio: 'inherit' });
       execSync(`git commit -m "docs: update changelog for v${version}"`, { stdio: 'inherit' });
-      
-      // Create the tag
-      execSync('npx nbgv tag', { stdio: 'inherit' });
       
       // Push everything
       execSync('git push origin main --follow-tags', { stdio: 'inherit' });
