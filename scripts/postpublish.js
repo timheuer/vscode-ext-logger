@@ -34,32 +34,56 @@ function postPublish() {
       const versionOutput = execSync('npx nbgv get-version --format json', { encoding: 'utf8' });
       const versionInfo = JSON.parse(versionOutput);
       
-      // Use the actual version that was published (MajorMinorVersion or SimpleVersion)
-      const version = versionInfo.MajorMinorVersion || versionInfo.SimpleVersion || versionInfo.Version;
+      // Use SimpleVersion for tagging (this includes patch version: 0.1.5)
+      // MajorMinorVersion only gives us 0.1, but we want the full version
+      const version = versionInfo.SimpleVersion || versionInfo.NpmPackageVersion || versionInfo.MajorMinorVersion;
       console.log(`📋 Working with published version: v${version}`);
       console.log(`🔍 Version info:`, {
         SimpleVersion: versionInfo.SimpleVersion,
+        NpmPackageVersion: versionInfo.NpmPackageVersion,
         MajorMinorVersion: versionInfo.MajorMinorVersion,
         Version: versionInfo.Version
       });
       
-      // Create the tag FIRST with the current version (before changelog commit)
-      execSync(`git tag v${version}`, { stdio: 'inherit' });
-      console.log(`🏷️  Created tag v${version}`);
+      // Check if tag already exists
+      try {
+        execSync(`git tag -l v${version}`, { stdio: 'pipe' });
+        console.log(`⚠️  Tag v${version} already exists, skipping tag creation`);
+      } catch {
+        // Tag doesn't exist, create it
+        console.log(`🏷️  Creating tag v${version}...`);
+        execSync(`git tag v${version}`, { stdio: 'inherit' });
+        console.log(`✅ Created tag v${version}`);
+      }
       
       // Now update changelog
+      console.log(`📝 Updating changelog...`);
       execSync('npm run update-changelog-only', { stdio: 'inherit' });
       
-      // Stage and commit changelog
-      execSync('git add CHANGELOG.md', { stdio: 'inherit' });
-      execSync(`git commit -m "docs: update changelog for v${version}"`, { stdio: 'inherit' });
+      // Check if there are changes to commit
+      try {
+        const status = execSync('git status --porcelain', { encoding: 'utf8' });
+        if (status.trim()) {
+          console.log(`📋 Changes detected, committing...`);
+          // Stage and commit changelog
+          execSync('git add CHANGELOG.md', { stdio: 'inherit' });
+          execSync(`git commit -m "docs: update changelog for v${version}"`, { stdio: 'inherit' });
+          console.log(`✅ Committed changelog changes`);
+        } else {
+          console.log(`ℹ️  No changelog changes to commit`);
+        }
+      } catch (commitError) {
+        console.log(`⚠️  Could not commit changes: ${commitError.message}`);
+      }
       
-      // Push everything
+      // Push everything (tags and commits)
+      console.log(`⬆️  Pushing to repository...`);
       execSync('git push origin main --follow-tags', { stdio: 'inherit' });
       
       console.log(`✅ Changelog updated, tagged v${version}, and pushed to repository`);
     } catch (error) {
       console.error('❌ Error in CI git operations:', error.message);
+      console.error('Stack trace:', error.stack);
       process.exit(1);
     }
   } else {

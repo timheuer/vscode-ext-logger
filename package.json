@@ -39,6 +39,7 @@
     "watch": "gulp watch",
     "prepublishOnly": "gulp clean && gulp build:full",
     "postpublish": "node scripts/postpublish.js",
+    "debug-version": "node scripts/debug-version.js",
     "update-changelog": "node scripts/update-changelog.js",
     "update-changelog-only": "node scripts/update-changelog-only.js",
     "tag-release": "nbgv tag && git push origin --tags",
