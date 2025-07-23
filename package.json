@@ -1,6 +1,6 @@
 {
   "name": "@timheuer/vscode-ext-logger",
-  "version": "0.1.0",
+  "version": "0.0.0-placeholder",
   "description": "A library to make logging simpler for VS Code extension authors.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
