@@ -117,3 +117,6 @@ build/
 # Test output
 coverage/
 .jest/
+
+# Nerdbank.GitVersioning
+obj/

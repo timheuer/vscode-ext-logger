@@ -179,8 +179,14 @@ uiLogger.info('UI component mounted');   // Shows in VS Code with [UI] prefix
 # Install dependencies
 npm install
 
-# Build the library
+# Set version from Git versioning
+npm run setversion
+
+# Build the library (automatically updates version from Git)
 npm run build
+
+# Full build with linting and tests
+npm run build:full
 
 # Run tests (located in /test directory)
 npm test
@@ -193,7 +199,41 @@ npm run lint
 
 # Fix linting issues
 npm run lint:fix
+
+# Watch for changes and run tests
+npm run watch
 ```
+
+## Versioning
+
+This project uses [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning) for automatic semantic versioning based on Git commits and tags, integrated via the npm package and Gulp tasks.
+
+### Version Management
+
+- **Development builds**: Automatically get versions based on Git history (e.g., `0.1.0`)
+- **Release builds**: Created from `main` branch get stable versions
+- **Version synchronization**: Gulp task automatically updates `package.json` from Git version info
+
+### Build Process
+
+The build process uses Gulp tasks that integrate with the `nerdbank-gitversioning` npm package:
+
+1. `gulp setversion` - Updates package.json version from Git
+2. `gulp build` - Sets version and builds the library
+3. `gulp build:full` - Runs linting, tests, then builds
+
+### Release Process
+
+```bash
+# Prepare a release (creates release branch and updates version)
+npm run release
+
+# Or manually:
+nbgv prepare-release
+git push origin main --follow-tags
+```
+
+The version in `package.json` is automatically managed by Gulp tasks using the nbgv npm package.
 
 ## Project Structure
 
@@ -204,6 +244,8 @@ npm run lint:fix
 │   └── index.test.ts   # Test suite  
 ├── dist/               # Built files (CJS + ESM)
 ├── package.json        # Package configuration
+├── version.json        # Nerdbank.GitVersioning config
+├── gulpfile.js         # Gulp build tasks
 ├── tsconfig.json       # TypeScript config
 ├── jest.config.js      # Jest test config
 ├── .eslintrc.js        # ESLint config
