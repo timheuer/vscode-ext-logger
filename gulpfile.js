@@ -90,6 +90,18 @@ gulp.task('tag-release', function(done) {
   }
 });
 
+// Task to update changelog
+gulp.task('update-changelog', function(done) {
+  try {
+    execSync('node scripts/update-changelog.js', { stdio: 'inherit' });
+    console.log('Changelog updated successfully');
+    done();
+  } catch (error) {
+    console.error('Error updating changelog:', error.message);
+    done(error);
+  }
+});
+
 // Task to publish and tag
 gulp.task('publish-and-tag', gulp.series('build:full', function(done) {
   try {

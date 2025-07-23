@@ -38,10 +38,12 @@
     "test:coverage": "jest --coverage",
     "watch": "gulp watch",
     "prepublishOnly": "gulp clean && gulp build:full",
-    "postpublish": "npm run tag-release",
+    "postpublish": "npm run update-changelog && npm run tag-release",
+    "update-changelog": "node scripts/update-changelog.js",
     "tag-release": "nbgv tag && git push origin --tags",
     "publish-with-tag": "npm publish && npm run tag-release",
     "publish-and-tag-gulp": "gulp publish-and-tag",
+    "release-all": "node scripts/release.js",
     "release": "nbgv prepare-release && git push origin main --follow-tags"
   },
   "keywords": [

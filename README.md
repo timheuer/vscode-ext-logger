@@ -24,8 +24,8 @@ import { Logger, LogLevel } from '@timheuer/vscode-ext-logger';
 
 // Create a logger with VS Code LogOutputChannel integration
 const logger = new Logger({
-  name: 'MyExtension',
-  level: LogLevel.Info,
+  name: context.extension.packageJSON.displayName, // If you have the ExtensionContext else put a string
+  level: LogLevel.Info, // Ideally retrieve this from your extensions configuration options and map
   outputChannel: true  // Enable VS Code LogOutputChannel integration
 });
 
@@ -54,7 +54,7 @@ logger.setLevel(LogLevel.Off);
 interface LoggerOptions {
   name?: string;        // Logger name (default: 'Extension')
   level?: LogLevel;     // Log level (default: LogLevel.Info)
-  outputChannel?: boolean; // Create VS Code LogOutputChannel (default: false)
+  outputChannel?: boolean; // Create VS Code LogOutputChannel (default: true)
 }
 ```
 

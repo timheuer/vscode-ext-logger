@@ -38,7 +38,10 @@ export class Logger {
     this.name = options.name || 'Extension';
     this.level = options.level ?? LogLevel.Info;
 
-    if (options.outputChannel && this.isVSCodeEnvironment()) {
+    // Default outputChannel to true if not explicitly set to false
+    const useOutputChannel = options.outputChannel ?? true;
+
+    if (useOutputChannel && this.isVSCodeEnvironment()) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const vscode = require('vscode');
