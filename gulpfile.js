@@ -69,4 +69,37 @@ gulp.task('watch', function() {
   return gulp.watch(['src/**/*.ts', 'test/**/*.ts'], gulp.series('setversion', 'test'));
 });
 
+// Task to tag release with nbgv
+gulp.task('tag-release', function(done) {
+  try {
+    // Get the current version from nbgv
+    const nbgv = require('nerdbank-gitversioning');
+    
+    // Create a tag with the current version
+    execSync('nbgv tag', { stdio: 'inherit' });
+    console.log('Release tagged successfully');
+    
+    // Push the tag to origin
+    execSync('git push origin --tags', { stdio: 'inherit' });
+    console.log('Tags pushed to origin');
+    
+    done();
+  } catch (error) {
+    console.error('Error tagging release:', error.message);
+    done(error);
+  }
+});
+
+// Task to publish and tag
+gulp.task('publish-and-tag', gulp.series('build:full', function(done) {
+  try {
+    // Publish to npm
+    execSync('npm publish', { stdio: 'inherit' });
+    console.log('Package published successfully');
+    done();
+  } catch (error) {
+    done(error);
+  }
+}));
+
 module.exports = gulp;
