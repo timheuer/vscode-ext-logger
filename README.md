@@ -235,6 +235,29 @@ git push origin main --follow-tags
 
 The version in `package.json` is automatically managed by Gulp tasks using the nbgv npm package.
 
+## CI/CD Pipeline
+
+This project includes comprehensive GitHub Actions workflows for automated building, testing, and publishing:
+
+### Workflow Overview
+
+- **CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
+  - ✅ **Build & Test**: Runs on all PRs and pushes to main/develop
+  - 📦 **Publish to NPM**: Triggered on GitHub releases
+  - 🚀 **Preview Releases**: Beta versions published from develop branch
+
+### Required GitHub Secrets
+
+To enable NPM publishing, add these secrets to your GitHub repository:
+
+1. **`NPM_TOKEN`** - Your NPM authentication token
+
+   ```bash
+   # Generate an NPM token with 'publish' permissions
+   npm login
+   npm token create
+   ```
+
 ## Project Structure
 
 ```text
