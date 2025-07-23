@@ -16,6 +16,13 @@
     "dist",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/timheuer/vscode-ext-logger"
+  },
+  "bugs": {
+    "url": "https://github.com/timheuer/vscode-ext-logger/issues"
+  },
   "scripts": {
     "setversion": "gulp setversion",
     "build": "gulp build",
