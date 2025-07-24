@@ -423,5 +423,7 @@ export async function getLogContentsForChannel(
  * @returns Promise<LogContentsResult> - Object containing success status, contents, and metadata
  */
 export async function getLogContents(context: ExtensionContext): Promise<LogContentsResult> {
-  return Logger.getLogContentsForChannel(context.extension.packageJSON.displayName, context);
+  // Safely access nested properties for graceful degradation
+  const channelName = context?.extension?.packageJSON?.displayName || 'Extension';
+  return Logger.getLogContentsForChannel(channelName, context);
 }
