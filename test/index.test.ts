@@ -275,7 +275,11 @@ describe('Log Contents Functionality', () => {
 
   describe('getLogContentsForChannel function', () => {
     it('should return error when VS Code environment is not available', async () => {
-      const result = await getLogContentsForChannel('TestChannel');
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      } as any;
+      const result = await getLogContentsForChannel('TestChannel', mockContext);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('VS Code environment not available');
@@ -286,7 +290,11 @@ describe('Log Contents Functionality', () => {
 
   describe('getLogContents function', () => {
     it('should return error when VS Code environment is not available', async () => {
-      const result = await getLogContents();
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      } as any;
+      const result = await getLogContents(mockContext);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('VS Code environment not available');
@@ -297,7 +305,11 @@ describe('Log Contents Functionality', () => {
 
   describe('LogContentsResult interface validation', () => {
     it('should have correct structure for error result', async () => {
-      const result = await getLogContents();
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      } as any;
+      const result = await getLogContents(mockContext);
 
       expect(result).toHaveProperty('success');
       expect(result).toHaveProperty('error');
@@ -321,7 +333,7 @@ describe('Context Integration', () => {
       const mockContext = {
         logUri: { fsPath: '/mock/log/path' },
         subscriptions: [],
-      };
+      } as any;
 
       const logger = new Logger({
         name: 'TestLogger',
@@ -338,7 +350,7 @@ describe('Context Integration', () => {
       const mockContext = {
         logUri: { fsPath: '/mock/log/path' },
         subscriptions: [],
-      };
+      } as any;
 
       const logger = createLoggerWithLevel('TestLogger', 'debug', false, mockContext);
       expect(logger.getLevel()).toBe(LogLevel.Debug);
@@ -348,7 +360,7 @@ describe('Context Integration', () => {
       const mockContext = {
         logUri: { fsPath: '/mock/log/path' },
         subscriptions: [],
-      };
+      } as any;
 
       const logger = createLoggerFromConfig(
         'TestLogger',
@@ -367,7 +379,7 @@ describe('Context Integration', () => {
       const mockContext = {
         logUri: { fsPath: '/mock/log/path' },
         subscriptions: [],
-      };
+      } as any;
 
       const result = await getLogContentsForChannel('TestChannel', mockContext);
 
@@ -380,7 +392,7 @@ describe('Context Integration', () => {
       const mockContext = {
         logUri: { fsPath: '/mock/log/path' },
         subscriptions: [],
-      };
+      } as any;
 
       const result = await getLogContents(mockContext);
 
