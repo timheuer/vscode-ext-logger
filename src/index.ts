@@ -3,8 +3,7 @@
  * A library to make logging simpler for VS Code extension authors.
  */
 
-// Use conditional type import to avoid compilation errors when vscode is not available
-type ExtensionContext = import('vscode').ExtensionContext;
+import type { ExtensionContext } from 'vscode';
 
 export interface LoggerOptions {
   name?: string;

@@ -43,6 +43,7 @@ Supports: `'off'|'error'|'warn'|'warning'|'info'|'debug'|'trace'` (case-insensit
 
 ### Build System (Gulp + tsup)
 
+- **Building Local**: When building locally and not in a CI environment, use `npm run build:local` only to avoid version scripts
 - **Version Management**: Uses `nerdbank-gitversioning` - version comes from Git history, not manual editing
 - **Critical Build Order**: `gulp build:full` = `prebuild` (lint + test) → `setversion` → `build`
 - **Dual Output**: tsup generates both CJS (`dist/index.js`) and ESM (`dist/index.mjs`) with TypeScript definitions
