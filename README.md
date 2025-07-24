@@ -108,6 +108,7 @@ interface LoggerOptions {
   name?: string;               // Logger name (default: 'Extension')
   level?: LogLevel | string;   // Log level enum or string (default: LogLevel.Info)
   outputChannel?: boolean;     // Create VS Code LogOutputChannel (default: true)
+  context?: ExtensionContext;  // VS Code ExtensionContext for accurate log file access
 }
 ```
 
@@ -148,8 +149,13 @@ enum LogLevel {
 - `setLevelFromString(level: string): void` - Set log level from string
 - `setLevelFromConfig(configSection: string, configKey?: string, defaultLevel?: string): void` - Update log level from VS Code configuration
 - `getLevel(): LogLevel` - Get current log level
+- `getLogContents(): Promise<LogContentsResult>` - Get the persisted log file contents for this logger
 - `show(): void` - Show the VS Code output channel (if available)
 - `dispose(): void` - Dispose of resources
+
+#### Static Methods
+
+- `Logger.getLogContentsForChannel(channelName: string): Promise<LogContentsResult>` - Get log contents for any channel name
 
 ### LogLevelUtils Class
 
@@ -176,6 +182,8 @@ import {
   createLogger, 
   createLoggerWithLevel, 
   createLoggerFromConfig, 
+  getLogContentsForChannel,
+  getLogContents,
   logger 
 } from '@timheuer/vscode-ext-logger';
 
@@ -205,6 +213,15 @@ const simpleLogger = createLogger({
   name: 'SimpleComponent'
   // outputChannel defaults to false, so uses console.log fallback
 });
+
+// Get log contents for a specific channel
+const logResult = await getLogContentsForChannel('MyExtension', context); // context required
+if (logResult.success) {
+  console.log('Log contents:', logResult.contents);
+}
+
+// Get log contents for the default 'Extension' channel
+const defaultLogResult = await getLogContents(context); // context required
 ```
 
 ## VS Code LogOutputChannel Integration
@@ -232,6 +249,209 @@ logger.info('This appears in blue');
 logger.debug('This appears in gray');
 logger.trace('This appears in light gray');
 ```
+
+## Log Contents Retrieval
+
+This library provides functionality to retrieve the persisted log file contents from VS Code's output channels. This is useful for debugging, exporting logs, or implementing custom log viewers within your extension.
+
+### Basic Log Contents Access
+
+```typescript
+import { Logger, getLogContents, getLogContentsForChannel } from '@timheuer/vscode-ext-logger';
+
+// In your extension's activate function
+export function activate(context: vscode.ExtensionContext) {
+  const logger = new Logger({ name: 'MyExtension', outputChannel: true, context });
+
+  // Log some messages
+  logger.info('Application started');
+  logger.warn('Configuration issue detected');
+  logger.error('Failed to load data');
+
+  // Get log contents for this logger instance (uses stored context)
+  const result = await logger.getLogContents();
+  if (result.success) {
+    console.log('Log file path:', result.filePath);
+    console.log('Log contents:', result.contents);
+  } else {
+    console.error('Failed to read logs:', result.error);
+  }
+}
+```
+
+### Static Method for Any Channel
+
+```typescript
+// Get log contents for any channel by name (context required)
+const result = await Logger.getLogContentsForChannel('SomeOtherExtension', context);
+if (result.success) {
+  const lines = result.contents.split('\n');
+  const errorLines = lines.filter(line => line.includes('[ERROR]'));
+  console.log(`Found ${errorLines.length} errors in the log`);
+}
+```
+
+### Convenience Functions
+
+```typescript
+// Get log contents for a specific channel name (context required)
+const specificResult = await getLogContentsForChannel('MyExtension', context);
+
+// Get log contents for the default 'Extension' channel (context required)
+const defaultResult = await getLogContents(context);
+```
+
+### LogContentsResult Interface
+
+All log contents methods return a `LogContentsResult` object:
+
+```typescript
+interface LogContentsResult {
+  success: boolean;      // Whether the operation succeeded
+  contents?: string;     // The log file contents (if successful)
+  error?: string;        // Error message (if failed)
+  filePath?: string;     // Path to the log file (if available)
+}
+```
+
+### Usage Examples
+
+#### Error Handling and Analysis
+
+```typescript
+async function analyzeLogErrors() {
+  const result = await logger.getLogContents();
+  
+  if (result.success && result.contents) {
+    const lines = result.contents.split('\n');
+    const errors = lines.filter(line => line.includes('[ERROR]'));
+    const warnings = lines.filter(line => line.includes('[WARN]'));
+    
+    console.log(`Log analysis for ${result.filePath}:`);
+    console.log(`- Total lines: ${lines.length}`);
+    console.log(`- Errors: ${errors.length}`);
+    console.log(`- Warnings: ${warnings.length}`);
+    
+    return { errors, warnings, totalLines: lines.length };
+  } else {
+    console.warn('Could not analyze logs:', result.error);
+    return null;
+  }
+}
+```
+
+#### Export Logs for Support
+
+```typescript
+async function exportLogsForSupport() {
+  const result = await getLogContentsForChannel('MyExtension');
+  
+  if (result.success) {
+    // Create a support bundle with relevant information
+    const supportData = {
+      timestamp: new Date().toISOString(),
+      logFilePath: result.filePath,
+      logContents: result.contents,
+      extensionVersion: '1.0.0', // Your extension version
+      vscodeVersion: vscode.version
+    };
+    
+    // Save or send to support
+    const supportBundle = JSON.stringify(supportData, null, 2);
+    return supportBundle;
+  }
+  
+  return null;
+}
+```
+
+#### VS Code Command Integration
+
+```typescript
+// In your extension's activate function - RECOMMENDED APPROACH
+export function activate(context: vscode.ExtensionContext) {
+  // Pass the context to enable accurate log file access via context.logUri
+  const logger = new Logger({ 
+    name: 'MyExtension', 
+    outputChannel: true,
+    context: context  // This enables proper log file location detection
+  });
+  
+  // Register a command to show log contents
+  const showLogsCommand = vscode.commands.registerCommand('myExtension.showLogs', async () => {
+    const result = await logger.getLogContents(); // Uses context.logUri automatically
+    
+    if (result.success) {
+      // Show in a new editor window
+      const doc = await vscode.workspace.openTextDocument({
+        content: result.contents,
+        language: 'log'
+      });
+      await vscode.window.showTextDocument(doc);
+    } else {
+      vscode.window.showErrorMessage(`Unable to load logs: ${result.error}`);
+    }
+  });
+  
+  context.subscriptions.push(showLogsCommand);
+  
+  // Alternative: Use standalone functions with context
+  const exportLogsCommand = vscode.commands.registerCommand('myExtension.exportLogs', async () => {
+    const result = await getLogContents(context); // Pass context explicitly
+    if (result.success) {
+      // Save logs to a file or export for support
+      console.log('Log file location:', result.filePath);
+    }
+  });
+  
+  context.subscriptions.push(exportLogsCommand);
+}
+```
+
+### Log File Locations
+
+The library uses VS Code's `context.logUri` to access log files. **Extension context is required** for log contents functionality.
+
+#### Extension Context Required
+
+Pass the `context` parameter (VS Code's ExtensionContext) to enable log file access:
+
+```typescript
+// ✅ REQUIRED: Pass context for log file access
+const logger = new Logger({ 
+  name: 'MyExtension', 
+  outputChannel: true,
+  context: context  // VS Code ExtensionContext
+});
+
+// Or with factory functions
+const logger = createLoggerFromConfig('MyExtension', 'myExt', 'logLevel', 'info', true, context);
+
+// Or with standalone functions
+const result = await getLogContents(context);
+```
+
+#### No Fallback Path Detection
+
+The library does **not** attempt to guess log file locations. If `context.logUri` is not available, log contents methods will return an error. This keeps the implementation simple and reliable.
+
+```typescript
+// ❌ Will fail without context
+const logger = new Logger({ name: 'MyExt' });
+const result = await logger.getLogContents(); 
+// Returns: { success: false, error: 'Extension context with logUri is required...' }
+
+// ✅ Works with context
+const logger = new Logger({ name: 'MyExt', context });
+const result = await logger.getLogContents(); // Uses context.logUri
+```
+
+### Requirements
+
+- **VS Code Environment Required**: Log contents retrieval only works within VS Code extensions
+- **Extension Context Required**: Must pass `context` parameter with `logUri` property
+- **Output Channel Required**: The logger must use an output channel (`outputChannel: true`)
+- **File Permissions**: Requires read access to VS Code's log directory (handled by `context.logUri`)
 
 ## Environment Compatibility
 

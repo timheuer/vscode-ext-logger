@@ -15,7 +15,17 @@ gulp.task('setversion', async function() {
   }
 });
 
-// Task to build the project
+// Task to build the project (local - no version setting)
+gulp.task('build:local', function(done) {
+  try {
+    execSync('npx tsup', { stdio: 'inherit' });
+    done();
+  } catch (error) {
+    done(error);
+  }
+});
+
+// Task to build the project (with version setting for CI/release)
 gulp.task('build', gulp.series('setversion', function(done) {
   try {
     execSync('npx tsup', { stdio: 'inherit' });
@@ -48,11 +58,14 @@ gulp.task('lint', function(done) {
 // Pre-build tasks
 gulp.task('prebuild', gulp.series('lint', 'test'));
 
-// Full build with validation
+// Full build with validation (local - no version setting)
+gulp.task('build:full:local', gulp.series('prebuild', 'build:local'));
+
+// Full build with validation (with version setting for CI/release)
 gulp.task('build:full', gulp.series('prebuild', 'build'));
 
-// Default task
-gulp.task('default', gulp.series('build'));
+// Default task (local build for development)
+gulp.task('default', gulp.series('build:local'));
 
 // Clean task
 gulp.task('clean', function(done) {
@@ -64,9 +77,9 @@ gulp.task('clean', function(done) {
   }
 });
 
-// Watch task
+// Watch task (local - no version setting)
 gulp.task('watch', function() {
-  return gulp.watch(['src/**/*.ts', 'test/**/*.ts'], gulp.series('setversion', 'test'));
+  return gulp.watch(['src/**/*.ts', 'test/**/*.ts'], gulp.series('test'));
 });
 
 // Task to tag release with nbgv

@@ -3,10 +3,20 @@
  * A library to make logging simpler for VS Code extension authors.
  */
 
+import type { ExtensionContext } from 'vscode';
+
 export interface LoggerOptions {
   name?: string;
   level?: LogLevel | string;
   outputChannel?: boolean;
+  context?: ExtensionContext | undefined; // VS Code ExtensionContext
+}
+
+export interface LogContentsResult {
+  success: boolean;
+  contents?: string;
+  error?: string;
+  filePath?: string;
 }
 
 // Interface to define the LogOutputChannel shape to avoid 'any'
@@ -95,9 +105,11 @@ export class Logger {
   private name: string;
   private level: LogLevel;
   private outputChannel?: LogOutputChannel;
+  private context?: ExtensionContext | undefined;
 
   constructor(options: LoggerOptions = {}) {
     this.name = options.name || 'Extension';
+    this.context = options.context;
 
     // Handle both string and LogLevel types for level option
     if (typeof options.level === 'string') {
@@ -247,6 +259,101 @@ export class Logger {
       this.outputChannel.dispose();
     }
   }
+
+  /**
+   * Get the contents of the persisted log file for this logger
+   * @returns Promise<LogContentsResult> - Object containing success status, contents, and metadata
+   */
+  async getLogContents(): Promise<LogContentsResult> {
+    if (!this.context) {
+      return {
+        success: false,
+        error: 'Extension context with logUri is required. Pass context to Logger constructor.',
+      };
+    }
+    return Logger.getLogContentsForChannel(this.name, this.context);
+  }
+
+  /**
+   * Static method to get log contents for any channel name
+   * @param channelName - The name of the output channel
+   * @param context - VS Code ExtensionContext with logUri (required)
+   * @returns Promise<LogContentsResult> - Object containing success status, contents, and metadata
+   */
+  static async getLogContentsForChannel(
+    channelName: string,
+    context?: ExtensionContext
+  ): Promise<LogContentsResult> {
+    if (!Logger.isVSCodeEnvironmentStatic()) {
+      return {
+        success: false,
+        error: 'VS Code environment not available',
+      };
+    }
+
+    if (!context || !context.logUri) {
+      return {
+        success: false,
+        error: 'Extension context with logUri is required but not available',
+      };
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const vscode = require('vscode');
+
+      // Use context.logUri directly - this is the canonical approach
+      const logFilePath = vscode.Uri.joinPath(context.logUri, `${channelName}.log`);
+
+      try {
+        // First, check if the file exists
+        const fileStat = await vscode.workspace.fs.stat(logFilePath);
+        if (fileStat.type !== vscode.FileType.File) {
+          return {
+            success: false,
+            error: 'Log file path exists but is not a file',
+            filePath: logFilePath.fsPath,
+          };
+        }
+
+        // Read the file contents
+        const fileBytes = await vscode.workspace.fs.readFile(logFilePath);
+        const contents = Buffer.from(fileBytes).toString('utf8');
+
+        return {
+          success: true,
+          contents,
+          filePath: logFilePath.fsPath,
+        };
+      } catch (fileError: unknown) {
+        const errorMessage = fileError instanceof Error ? fileError.message : 'Unknown file error';
+        return {
+          success: false,
+          error: `Failed to read log file: ${errorMessage}`,
+          filePath: logFilePath.fsPath,
+        };
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        error: `VS Code API error: ${errorMessage}`,
+      };
+    }
+  }
+
+  /**
+   * Static helper to check if VS Code environment is available
+   * @returns boolean - True if VS Code environment is detected
+   */
+  private static isVSCodeEnvironmentStatic(): boolean {
+    try {
+      require('vscode');
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 // Export a default logger instance
@@ -262,14 +369,16 @@ export function createLogger(options: LoggerOptions): Logger {
  * @param name - Logger name
  * @param level - Log level as string
  * @param outputChannel - Whether to use VS Code output channel (default: true)
+ * @param context - Optional VS Code ExtensionContext (required for log contents access)
  * @returns New Logger instance
  */
 export function createLoggerWithLevel(
   name: string,
   level: string,
-  outputChannel: boolean = true
+  outputChannel: boolean = true,
+  context?: ExtensionContext | undefined
 ): Logger {
-  return new Logger({ name, level, outputChannel });
+  return new Logger({ name, level, outputChannel, context });
 }
 
 /**
@@ -279,6 +388,7 @@ export function createLoggerWithLevel(
  * @param configKey - The configuration key for log level (default: 'logLevel')
  * @param defaultLevel - Default level if config is not found (default: 'info')
  * @param outputChannel - Whether to use VS Code output channel (default: true)
+ * @param context - Optional VS Code ExtensionContext (required for log contents access)
  * @returns New Logger instance
  */
 export function createLoggerFromConfig(
@@ -286,9 +396,32 @@ export function createLoggerFromConfig(
   configSection: string,
   configKey: string = 'logLevel',
   defaultLevel: string = 'info',
-  outputChannel: boolean = true
+  outputChannel: boolean = true,
+  context?: ExtensionContext | undefined
 ): Logger {
-  const logger = new Logger({ name, level: defaultLevel, outputChannel });
+  const logger = new Logger({ name, level: defaultLevel, outputChannel, context });
   logger.setLevelFromConfig(configSection, configKey, defaultLevel);
   return logger;
+}
+
+/**
+ * Get log contents for a specific channel name
+ * @param channelName - The name of the output channel
+ * @param context - VS Code ExtensionContext with logUri (required)
+ * @returns Promise<LogContentsResult> - Object containing success status, contents, and metadata
+ */
+export async function getLogContentsForChannel(
+  channelName: string,
+  context: ExtensionContext
+): Promise<LogContentsResult> {
+  return Logger.getLogContentsForChannel(channelName, context);
+}
+
+/**
+ * Get log contents for the default logger channel
+ * @param context - VS Code ExtensionContext with logUri (required)
+ * @returns Promise<LogContentsResult> - Object containing success status, contents, and metadata
+ */
+export async function getLogContents(context: ExtensionContext): Promise<LogContentsResult> {
+  return Logger.getLogContentsForChannel('Extension', context);
 }

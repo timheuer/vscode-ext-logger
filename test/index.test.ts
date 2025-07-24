@@ -5,6 +5,8 @@ import {
   createLogger,
   createLoggerWithLevel,
   createLoggerFromConfig,
+  getLogContentsForChannel,
+  getLogContents,
 } from '../src/index';
 
 describe('Logger', () => {
@@ -219,6 +221,172 @@ describe('String-based Logger functionality', () => {
     it('should create logger with default level when VS Code is not available', () => {
       const logger = createLoggerFromConfig('TestLogger', 'testConfig', 'logLevel', 'debug');
       expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+  });
+});
+
+describe('Log Contents Functionality', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('Logger.getLogContents instance method', () => {
+    it('should return error when context is not provided', async () => {
+      const logger = new Logger({ name: 'TestLogger', outputChannel: false });
+      const result = await logger.getLogContents();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'Extension context with logUri is required. Pass context to Logger constructor.'
+      );
+      expect(result.contents).toBeUndefined();
+      expect(result.filePath).toBeUndefined();
+    });
+  });
+
+  describe('Logger.getLogContentsForChannel static method', () => {
+    it('should return error when VS Code environment is not available', async () => {
+      const result = await Logger.getLogContentsForChannel('TestChannel');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
+      expect(result.contents).toBeUndefined();
+      expect(result.filePath).toBeUndefined();
+    });
+
+    it('should handle empty channel name', async () => {
+      const result = await Logger.getLogContentsForChannel('');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
+    });
+
+    it('should handle channel names with special characters', async () => {
+      const result = await Logger.getLogContentsForChannel('Test-Channel_123');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
+    });
+  });
+
+  describe('getLogContentsForChannel function', () => {
+    it('should return error when VS Code environment is not available', async () => {
+      const result = await getLogContentsForChannel('TestChannel');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
+      expect(result.contents).toBeUndefined();
+      expect(result.filePath).toBeUndefined();
+    });
+  });
+
+  describe('getLogContents function', () => {
+    it('should return error when VS Code environment is not available', async () => {
+      const result = await getLogContents();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
+      expect(result.contents).toBeUndefined();
+      expect(result.filePath).toBeUndefined();
+    });
+  });
+
+  describe('LogContentsResult interface validation', () => {
+    it('should have correct structure for error result', async () => {
+      const result = await getLogContents();
+
+      expect(result).toHaveProperty('success');
+      expect(result).toHaveProperty('error');
+      expect(typeof result.success).toBe('boolean');
+      expect(typeof result.error).toBe('string');
+    });
+  });
+});
+
+describe('Context Integration', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('Logger constructor with context', () => {
+    it('should accept context in constructor options', () => {
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      };
+
+      const logger = new Logger({
+        name: 'TestLogger',
+        outputChannel: false,
+        context: mockContext,
+      });
+
+      expect(logger.getLevel()).toBe(LogLevel.Info);
+    });
+  });
+
+  describe('Factory functions with context', () => {
+    it('should pass context to createLoggerWithLevel', () => {
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      };
+
+      const logger = createLoggerWithLevel('TestLogger', 'debug', false, mockContext);
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should pass context to createLoggerFromConfig', () => {
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      };
+
+      const logger = createLoggerFromConfig(
+        'TestLogger',
+        'testConfig',
+        'logLevel',
+        'warn',
+        false,
+        mockContext
+      );
+      expect(logger.getLevel()).toBe(LogLevel.Warn);
+    });
+  });
+
+  describe('Context-aware log contents functions', () => {
+    it('should accept context in getLogContentsForChannel', async () => {
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      };
+
+      const result = await getLogContentsForChannel('TestChannel', mockContext);
+
+      // Should still fail because we're not in VS Code, but it should accept the context
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
+    });
+
+    it('should accept context in getLogContents', async () => {
+      const mockContext = {
+        logUri: { fsPath: '/mock/log/path' },
+        subscriptions: [],
+      };
+
+      const result = await getLogContents(mockContext);
+
+      // Should still fail because we're not in VS Code, but it should accept the context
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('VS Code environment not available');
     });
   });
 });
