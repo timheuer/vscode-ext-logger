@@ -1,4 +1,11 @@
-import { Logger, LogLevel, createLogger } from '../src/index';
+import {
+  Logger,
+  LogLevel,
+  LogLevelUtils,
+  createLogger,
+  createLoggerWithLevel,
+  createLoggerFromConfig,
+} from '../src/index';
 
 describe('Logger', () => {
   let logger: Logger;
@@ -120,6 +127,98 @@ describe('Logger', () => {
       expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('[TestChannel] Test message')
       );
+    });
+  });
+});
+
+describe('LogLevelUtils', () => {
+  describe('fromString', () => {
+    it('should convert string log levels to LogLevel enum', () => {
+      expect(LogLevelUtils.fromString('off')).toBe(LogLevel.Off);
+      expect(LogLevelUtils.fromString('error')).toBe(LogLevel.Error);
+      expect(LogLevelUtils.fromString('warn')).toBe(LogLevel.Warn);
+      expect(LogLevelUtils.fromString('warning')).toBe(LogLevel.Warn);
+      expect(LogLevelUtils.fromString('info')).toBe(LogLevel.Info);
+      expect(LogLevelUtils.fromString('debug')).toBe(LogLevel.Debug);
+      expect(LogLevelUtils.fromString('trace')).toBe(LogLevel.Trace);
+    });
+
+    it('should be case insensitive', () => {
+      expect(LogLevelUtils.fromString('ERROR')).toBe(LogLevel.Error);
+      expect(LogLevelUtils.fromString('WaRn')).toBe(LogLevel.Warn);
+      expect(LogLevelUtils.fromString('INFO')).toBe(LogLevel.Info);
+    });
+
+    it('should handle whitespace', () => {
+      expect(LogLevelUtils.fromString(' error ')).toBe(LogLevel.Error);
+      expect(LogLevelUtils.fromString('\tdebug\n')).toBe(LogLevel.Debug);
+    });
+
+    it('should default to Info for invalid strings', () => {
+      expect(LogLevelUtils.fromString('invalid')).toBe(LogLevel.Info);
+      expect(LogLevelUtils.fromString('')).toBe(LogLevel.Info);
+    });
+  });
+
+  describe('toString', () => {
+    it('should convert LogLevel enum to string', () => {
+      expect(LogLevelUtils.toString(LogLevel.Off)).toBe('off');
+      expect(LogLevelUtils.toString(LogLevel.Error)).toBe('error');
+      expect(LogLevelUtils.toString(LogLevel.Warn)).toBe('warn');
+      expect(LogLevelUtils.toString(LogLevel.Info)).toBe('info');
+      expect(LogLevelUtils.toString(LogLevel.Debug)).toBe('debug');
+      expect(LogLevelUtils.toString(LogLevel.Trace)).toBe('trace');
+    });
+  });
+
+  describe('getValidLevels', () => {
+    it('should return all valid level strings', () => {
+      const validLevels = LogLevelUtils.getValidLevels();
+      expect(validLevels).toEqual(['off', 'error', 'warn', 'warning', 'info', 'debug', 'trace']);
+    });
+  });
+});
+
+describe('String-based Logger functionality', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('Logger constructor with string level', () => {
+    it('should accept string log level in constructor', () => {
+      const logger = new Logger({ name: 'Test', level: 'debug' });
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should accept LogLevel enum in constructor', () => {
+      const logger = new Logger({ name: 'Test', level: LogLevel.Error });
+      expect(logger.getLevel()).toBe(LogLevel.Error);
+    });
+  });
+
+  describe('setLevelFromString', () => {
+    it('should set log level from string', () => {
+      const logger = new Logger({ name: 'Test' });
+      logger.setLevelFromString('error');
+      expect(logger.getLevel()).toBe(LogLevel.Error);
+    });
+  });
+
+  describe('createLoggerWithLevel', () => {
+    it('should create logger with string level', () => {
+      const logger = createLoggerWithLevel('TestLogger', 'warn');
+      expect(logger.getLevel()).toBe(LogLevel.Warn);
+    });
+  });
+
+  describe('createLoggerFromConfig', () => {
+    it('should create logger with default level when VS Code is not available', () => {
+      const logger = createLoggerFromConfig('TestLogger', 'testConfig', 'logLevel', 'debug');
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
     });
   });
 });

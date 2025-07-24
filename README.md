@@ -19,13 +19,15 @@ npm install @timheuer/vscode-ext-logger
 
 ## Quick Start
 
+### Basic Usage
+
 ```typescript
 import { Logger, LogLevel } from '@timheuer/vscode-ext-logger';
 
 // Create a logger with VS Code LogOutputChannel integration
 const logger = new Logger({
   name: context.extension.packageJSON.displayName, // If you have the ExtensionContext else put a string
-  level: LogLevel.Info, // Ideally retrieve this from your extensions configuration options and map
+  level: LogLevel.Info, // Or use string: level: 'info'
   outputChannel: true  // Enable VS Code LogOutputChannel integration
 });
 
@@ -44,6 +46,57 @@ logger.debug('Now this will show');
 logger.setLevel(LogLevel.Off);
 ```
 
+### String-Based Log Levels (Simplified Configuration)
+
+For easier configuration management (especially with VS Code settings), you can use string-based log levels:
+
+```typescript
+import { Logger, createLoggerWithLevel, createLoggerFromConfig } from '@timheuer/vscode-ext-logger';
+
+// Create logger with string log level
+const logger = new Logger({
+  name: 'MyExtension',
+  level: 'debug',  // String instead of LogLevel.Debug
+  outputChannel: true
+});
+
+// Or use convenience function
+const logger2 = createLoggerWithLevel('MyExtension', 'info');
+
+// Automatically configure from VS Code settings
+const logger3 = createLoggerFromConfig('MyExtension', 'myExtension');
+// This reads from VS Code config: myExtension.logLevel
+
+// Update log level from string
+logger.setLevelFromString('trace');
+
+// Update from VS Code configuration
+logger.setLevelFromConfig('myExtension', 'logLevel', 'info');
+```
+
+### Simplified Extension Configuration
+
+Instead of the manual mapping you showed, you can now do this:
+
+```typescript
+// Before (cumbersome):
+const config = vscode.workspace.getConfiguration('loggerTester');
+const logLevelSetting = config.get<string>('logLevel', 'info');
+let logLevel: LogLevel;
+switch (logLevelSetting.toLowerCase()) {
+  case 'off': logLevel = LogLevel.Error; break; // etc...
+}
+const logger = new Logger({ name: 'Test', level: logLevel });
+
+// After (simple):
+const logger = createLoggerFromConfig('MyExtension', 'loggerTester');
+// Or:
+const logger = new Logger({ 
+  name: 'MyExtension', 
+  level: vscode.workspace.getConfiguration('loggerTester').get('logLevel', 'info')
+});
+```
+
 ## API Reference
 
 ### Logger Class
@@ -52,11 +105,24 @@ logger.setLevel(LogLevel.Off);
 
 ```typescript
 interface LoggerOptions {
-  name?: string;        // Logger name (default: 'Extension')
-  level?: LogLevel;     // Log level (default: LogLevel.Info)
-  outputChannel?: boolean; // Create VS Code LogOutputChannel (default: true)
+  name?: string;               // Logger name (default: 'Extension')
+  level?: LogLevel | string;   // Log level enum or string (default: LogLevel.Info)
+  outputChannel?: boolean;     // Create VS Code LogOutputChannel (default: true)
 }
 ```
+
+#### String Log Levels
+
+All methods that accept `LogLevel` enum also accept string equivalents:
+
+- `'off'` → `LogLevel.Off`
+- `'error'` → `LogLevel.Error`
+- `'warn'` or `'warning'` → `LogLevel.Warn`
+- `'info'` → `LogLevel.Info`
+- `'debug'` → `LogLevel.Debug`
+- `'trace'` → `LogLevel.Trace`
+
+String matching is **case-insensitive** and handles whitespace.
 
 #### Log Levels
 
@@ -79,14 +145,39 @@ enum LogLevel {
 - `debug(message: string, ...args: unknown[]): void` - Log debug message
 - `trace(message: string, ...args: unknown[]): void` - Log trace message
 - `setLevel(level: LogLevel): void` - Set the log level
+- `setLevelFromString(level: string): void` - Set log level from string
+- `setLevelFromConfig(configSection: string, configKey?: string, defaultLevel?: string): void` - Update log level from VS Code configuration
 - `getLevel(): LogLevel` - Get current log level
 - `show(): void` - Show the VS Code output channel (if available)
 - `dispose(): void` - Dispose of resources
 
+### LogLevelUtils Class
+
+Utility functions for working with log levels:
+
+```typescript
+import { LogLevelUtils } from '@timheuer/vscode-ext-logger';
+
+// Convert string to LogLevel enum
+const level = LogLevelUtils.fromString('debug'); // Returns LogLevel.Debug
+
+// Convert LogLevel enum to string
+const levelString = LogLevelUtils.toString(LogLevel.Error); // Returns 'error'
+
+// Get all valid level strings
+const validLevels = LogLevelUtils.getValidLevels(); 
+// Returns: ['off', 'error', 'warn', 'warning', 'info', 'debug', 'trace']
+```
+
 ### Convenience Functions
 
 ```typescript
-import { createLogger, logger } from '@timheuer/vscode-ext-logger';
+import { 
+  createLogger, 
+  createLoggerWithLevel, 
+  createLoggerFromConfig, 
+  logger 
+} from '@timheuer/vscode-ext-logger';
 
 // Use the default logger (no VS Code integration)
 logger.info('Using default logger');
@@ -97,6 +188,17 @@ const myLogger = createLogger({
   level: LogLevel.Debug,
   outputChannel: true  // This creates the LogOutputChannel
 });
+
+// Create a logger with string-based level
+const stringLogger = createLoggerWithLevel('MyComponent', 'debug');
+
+// Create a logger that automatically reads from VS Code configuration
+const configLogger = createLoggerFromConfig(
+  'MyExtension',          // Logger name
+  'myExtension',          // Config section
+  'logLevel',             // Config key (optional, defaults to 'logLevel')
+  'info'                  // Default level (optional, defaults to 'info')
+);
 
 // Create a simple logger without VS Code integration  
 const simpleLogger = createLogger({
