@@ -10,6 +10,7 @@ export interface LoggerOptions {
   level?: LogLevel | string;
   outputChannel?: boolean;
   context?: ExtensionContext | undefined; // VS Code ExtensionContext
+  monitorConfig?: boolean; // Enable automatic config monitoring when using createLoggerFromConfig
 }
 
 export interface LogContentsResult {
@@ -106,6 +107,10 @@ export class Logger {
   private level: LogLevel;
   private outputChannel?: LogOutputChannel;
   private context?: ExtensionContext | undefined;
+  private configWatcher?: { dispose(): void }; // VS Code configuration watcher
+  private configSection?: string;
+  private configKey?: string;
+  private defaultLevel?: string;
 
   constructor(options: LoggerOptions = {}) {
     this.name = options.name || 'Extension';
@@ -244,6 +249,69 @@ export class Logger {
     }
   }
 
+  /**
+   * Enable automatic monitoring of VS Code configuration changes for log level
+   * @param configSection - The configuration section (e.g., 'myExtension')
+   * @param configKey - The configuration key for log level (default: 'logLevel')
+   * @param defaultLevel - Default level if config is not found (default: 'info')
+   */
+  enableConfigMonitoring(
+    configSection: string,
+    configKey: string = 'logLevel',
+    defaultLevel: string = 'info'
+  ): void {
+    // Store config details for monitoring
+    this.configSection = configSection;
+    this.configKey = configKey;
+    this.defaultLevel = defaultLevel;
+
+    // Set initial level from config
+    this.setLevelFromConfig(configSection, configKey, defaultLevel);
+
+    // Set up config watcher if in VS Code environment
+    if (this.isVSCodeEnvironment()) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const vscode = require('vscode');
+
+        // Create configuration change listener
+        this.configWatcher = vscode.workspace.onDidChangeConfiguration((event: unknown) => {
+          // Type guard for event parameter
+          if (event && typeof event === 'object' && 'affectsConfiguration' in event) {
+            const configEvent = event as { affectsConfiguration(section: string): boolean };
+
+            // Check if our specific config section was changed
+            if (configEvent.affectsConfiguration(configSection)) {
+              const config = vscode.workspace.getConfiguration(configSection);
+              const logLevelSetting = config.get(configKey, defaultLevel) as string;
+              this.setLevelFromString(logLevelSetting);
+            }
+          }
+        });
+
+        // Add to context subscriptions for automatic cleanup if context is available
+        if (this.context?.subscriptions && this.configWatcher) {
+          this.context.subscriptions.push(this.configWatcher);
+        }
+      } catch {
+        // If VS Code is not available, silently continue without monitoring
+      }
+    }
+  }
+
+  /**
+   * Disable automatic configuration monitoring
+   */
+  disableConfigMonitoring(): void {
+    if (this.configWatcher) {
+      this.configWatcher.dispose();
+      delete this.configWatcher;
+    }
+    delete this.configSection;
+    delete this.configKey;
+    delete this.defaultLevel;
+  }
+
   getLevel(): LogLevel {
     return this.level;
   }
@@ -255,6 +323,9 @@ export class Logger {
   }
 
   dispose(): void {
+    // Disable config monitoring if enabled
+    this.disableConfigMonitoring();
+
     if (this.outputChannel) {
       this.outputChannel.dispose();
     }
@@ -388,7 +459,8 @@ export function createLoggerWithLevel(
  * @param configKey - The configuration key for log level (default: 'logLevel')
  * @param defaultLevel - Default level if config is not found (default: 'info')
  * @param outputChannel - Whether to use VS Code output channel (default: true)
- * @param context - Optional VS Code ExtensionContext (required for log contents access)
+ * @param context - Optional VS Code ExtensionContext (required for log contents access and automatic cleanup)
+ * @param monitorConfig - Enable automatic monitoring of config changes (default: false to avoid conflicts with existing extension monitoring)
  * @returns New Logger instance
  */
 export function createLoggerFromConfig(
@@ -397,11 +469,50 @@ export function createLoggerFromConfig(
   configKey: string = 'logLevel',
   defaultLevel: string = 'info',
   outputChannel: boolean = true,
-  context?: ExtensionContext | undefined
+  context?: ExtensionContext | undefined,
+  monitorConfig: boolean = false
 ): Logger {
   const logger = new Logger({ name, level: defaultLevel, outputChannel, context });
-  logger.setLevelFromConfig(configSection, configKey, defaultLevel);
+
+  if (monitorConfig) {
+    // Enable automatic config monitoring
+    logger.enableConfigMonitoring(configSection, configKey, defaultLevel);
+  } else {
+    // Just set the initial level from config without monitoring
+    logger.setLevelFromConfig(configSection, configKey, defaultLevel);
+  }
+
   return logger;
+}
+
+/**
+ * Create a logger that monitors VS Code configuration changes automatically
+ * This is a convenience function that always enables config monitoring
+ * @param name - Logger name
+ * @param configSection - The configuration section to read from
+ * @param configKey - The configuration key for log level (default: 'logLevel')
+ * @param defaultLevel - Default level if config is not found (default: 'info')
+ * @param outputChannel - Whether to use VS Code output channel (default: true)
+ * @param context - Optional VS Code ExtensionContext (required for log contents access and automatic cleanup)
+ * @returns New Logger instance with automatic config monitoring enabled
+ */
+export function createLoggerWithConfigMonitoring(
+  name: string,
+  configSection: string,
+  configKey: string = 'logLevel',
+  defaultLevel: string = 'info',
+  outputChannel: boolean = true,
+  context?: ExtensionContext | undefined
+): Logger {
+  return createLoggerFromConfig(
+    name,
+    configSection,
+    configKey,
+    defaultLevel,
+    outputChannel,
+    context,
+    true
+  );
 }
 
 /**

@@ -63,15 +63,125 @@ const logger = new Logger({
 // Or use convenience function
 const logger2 = createLoggerWithLevel('MyExtension', 'info');
 
-// Automatically configure from VS Code settings
+// Automatically configure from VS Code settings with monitoring
 const logger3 = createLoggerFromConfig('MyExtension', 'myExtension');
 // This reads from VS Code config: myExtension.logLevel
+// AND automatically monitors for config changes!
 
 // Update log level from string
 logger.setLevelFromString('trace');
 
-// Update from VS Code configuration
+// Update from VS Code configuration (one-time)
 logger.setLevelFromConfig('myExtension', 'logLevel', 'info');
+```
+
+### Automatic Configuration Monitoring 🆕
+
+**NEW**: The library can now automatically monitor VS Code configuration changes and update log levels in real-time!
+
+```typescript
+// Create logger with automatic config monitoring (opt-in)
+const logger = createLoggerFromConfig('MyExtension', 'myExtension', 'logLevel', 'info', true, context, true);
+
+// When user changes 'myExtension.logLevel' in VS Code settings, 
+// the logger automatically updates its level!
+
+// Or use the explicit function (always enables monitoring)
+import { createLoggerWithConfigMonitoring } from '@timheuer/vscode-ext-logger';
+const monitoringLogger = createLoggerWithConfigMonitoring('MyExtension', 'myExtension');
+
+// Manual control over monitoring
+const logger = new Logger({ name: 'MyExtension', context });
+logger.enableConfigMonitoring('myExtension', 'logLevel', 'info');
+// Logger now automatically responds to config changes
+
+// Later, disable monitoring if needed
+logger.disableConfigMonitoring();
+```
+
+#### Benefits of Config Monitoring
+
+- **Real-time updates**: Log level changes immediately when users modify settings
+- **No restart required**: Works without reloading the extension
+- **Automatic cleanup**: Listeners are properly disposed when logger is disposed
+- **Context integration**: Uses VS Code's extension context for automatic cleanup
+- **Performance optimized**: Only monitors the specific config section you specify
+- **Conflict-free**: Opt-in design prevents conflicts with existing extension monitoring
+
+#### Avoiding Double-Monitoring
+
+**Important**: If your extension already monitors configuration changes and calls `setLevelFromString()`, you should either:
+
+1. **Remove your existing monitoring** and enable library monitoring:
+
+   ```typescript
+   // Remove your existing config monitoring code and use:
+   const logger = createLoggerFromConfig('MyExt', 'myExt', 'logLevel', 'info', true, context, true);
+   ```
+
+2. **Keep your existing monitoring** and disable library monitoring:
+
+   ```typescript
+   // Keep your existing config monitoring and use:
+   const logger = createLoggerFromConfig('MyExt', 'myExt', 'logLevel', 'info', true, context, false);
+   
+   // Your existing code continues to work:
+   vscode.workspace.onDidChangeConfiguration((event) => {
+     if (event.affectsConfiguration('myExt')) {
+       logger.setLevelFromString(vscode.workspace.getConfiguration('myExt').get('logLevel'));
+     }
+   });
+   ```
+
+The default is `false` to ensure existing extensions don't accidentally get double-monitoring.
+
+#### Best Practices for Config Monitoring
+
+```typescript
+// ✅ RECOMMENDED: Pass extension context for automatic cleanup
+export function activate(context: vscode.ExtensionContext) {
+  // Option 1: Enable automatic monitoring (opt-in for safety)
+  const logger = createLoggerFromConfig(
+    'MyExtension', 
+    'myExtension', 
+    'logLevel', 
+    'info',
+    true,
+    context,
+    true  // Enable monitoring - opt-in to avoid conflicts with existing code
+  );
+  
+  // Option 2: Use the always-monitoring convenience function
+  const alwaysMonitoringLogger = createLoggerWithConfigMonitoring(
+    'MyExtension', 
+    'myExtension'
+  );
+  
+  // Config changes are automatically handled
+  logger.info('Extension activated');
+}
+
+// ✅ Manual cleanup if not using context
+const logger = createLoggerFromConfig('MyExtension', 'myExtension', 'logLevel', 'info', true, undefined, true);
+
+// In your extension's deactivate function
+export function deactivate() {
+  logger.dispose(); // This cleans up the config watcher
+}
+
+// ✅ Disable monitoring for performance-critical scenarios or to avoid conflicts
+const logger = createLoggerFromConfig(
+  'MyExtension', 
+  'myExtension', 
+  'logLevel', 
+  'info',
+  true,
+  context,
+  false  // Disable monitoring - safe for existing extensions with their own config monitoring
+);
+
+// ✅ Enable monitoring later when needed
+logger.enableConfigMonitoring('myExtension', 'logLevel', 'info');
 ```
 
 ### Simplified Extension Configuration
@@ -84,11 +194,16 @@ const config = vscode.workspace.getConfiguration('loggerTester');
 const logLevelSetting = config.get<string>('logLevel', 'info');
 let logLevel: LogLevel;
 switch (logLevelSetting.toLowerCase()) {
-  case 'off': logLevel = LogLevel.Error; break; // etc...
+  case 'off': logLevel = LogLevel.Off; break; // etc...
 }
 const logger = new Logger({ name: 'Test', level: logLevel });
 
-// After (simple):
+// After (simple + optional automatic monitoring):
+const logger = createLoggerFromConfig('MyExtension', 'loggerTester', 'logLevel', 'info', true, context, true);
+// Now when user changes 'loggerTester.logLevel' in settings, 
+// the logger automatically updates! (opt-in to avoid conflicts)
+
+// Or without monitoring (safe for existing extensions):
 const logger = createLoggerFromConfig('MyExtension', 'loggerTester');
 // Or:
 const logger = new Logger({ 
@@ -150,6 +265,8 @@ enum LogLevel {
 - `setLevelFromConfig(configSection: string, configKey?: string, defaultLevel?: string): void` - Update log level from VS Code configuration
 - `getLevel(): LogLevel` - Get current log level
 - `getLogContents(): Promise<LogContentsResult>` - Get the persisted log file contents for this logger
+- `enableConfigMonitoring(configSection: string, configKey?: string, defaultLevel?: string): void` - Enable automatic monitoring of VS Code configuration changes
+- `disableConfigMonitoring(): void` - Disable automatic configuration monitoring
 - `show(): void` - Show the VS Code output channel (if available)
 - `dispose(): void` - Dispose of resources
 
@@ -181,7 +298,8 @@ const validLevels = LogLevelUtils.getValidLevels();
 import { 
   createLogger, 
   createLoggerWithLevel, 
-  createLoggerFromConfig, 
+  createLoggerFromConfig,
+  createLoggerWithConfigMonitoring,
   getLogContentsForChannel,
   getLogContents,
   logger 
@@ -201,11 +319,25 @@ const myLogger = createLogger({
 const stringLogger = createLoggerWithLevel('MyComponent', 'debug');
 
 // Create a logger that automatically reads from VS Code configuration
+// with automatic monitoring available as opt-in
 const configLogger = createLoggerFromConfig(
   'MyExtension',          // Logger name
   'myExtension',          // Config section
   'logLevel',             // Config key (optional, defaults to 'logLevel')
-  'info'                  // Default level (optional, defaults to 'info')
+  'info',                 // Default level (optional, defaults to 'info')
+  true,                   // Output channel (optional, defaults to true)
+  context,                // Extension context (optional, for auto cleanup)
+  false                   // Monitor config (optional, defaults to false to avoid conflicts)
+);
+
+// Create a logger with config monitoring explicitly enabled
+const monitoringLogger = createLoggerWithConfigMonitoring(
+  'MyExtension',          // Logger name
+  'myExtension',          // Config section
+  'logLevel',             // Config key (optional, defaults to 'logLevel')
+  'info',                 // Default level (optional, defaults to 'info')
+  true,                   // Output channel (optional, defaults to true)
+  context                 // Extension context (optional, for auto cleanup)
 );
 
 // Create a simple logger without VS Code integration  
@@ -291,7 +423,7 @@ if (result.success) {
 }
 ```
 
-### Convenience Functions
+### Factory Functions and Default Logger
 
 ```typescript
 // Get log contents for a specific channel name (context required)

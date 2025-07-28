@@ -5,6 +5,7 @@ import {
   createLogger,
   createLoggerWithLevel,
   createLoggerFromConfig,
+  createLoggerWithConfigMonitoring,
   getLogContentsForChannel,
   getLogContents,
 } from '../src/index';
@@ -110,6 +111,33 @@ describe('Logger', () => {
       expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('[Test] Message with args {"key":"value"} 123')
       );
+    });
+  });
+
+  describe('config monitoring', () => {
+    it('should enable config monitoring', () => {
+      logger.enableConfigMonitoring('testSection', 'logLevel', 'debug');
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should disable config monitoring', () => {
+      logger.enableConfigMonitoring('testSection', 'logLevel', 'debug');
+      logger.disableConfigMonitoring();
+      // Should not throw any errors
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should handle config monitoring when VS Code is not available', () => {
+      logger.enableConfigMonitoring('testSection', 'logLevel', 'warn');
+      expect(logger.getLevel()).toBe(LogLevel.Warn);
+    });
+
+    it('should properly clean up config monitoring on dispose', () => {
+      logger.enableConfigMonitoring('testSection', 'logLevel', 'trace');
+      expect(logger.getLevel()).toBe(LogLevel.Trace);
+
+      // Should not throw any errors
+      logger.dispose();
     });
   });
 
@@ -221,6 +249,44 @@ describe('String-based Logger functionality', () => {
     it('should create logger with default level when VS Code is not available', () => {
       const logger = createLoggerFromConfig('TestLogger', 'testConfig', 'logLevel', 'debug');
       expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should create logger with monitoring disabled', () => {
+      const logger = createLoggerFromConfig(
+        'TestLogger',
+        'testConfig',
+        'logLevel',
+        'debug',
+        true,
+        undefined,
+        false
+      );
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should create logger with monitoring disabled by default', () => {
+      const logger = createLoggerFromConfig('TestLogger', 'testConfig', 'logLevel', 'debug');
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should create logger with monitoring explicitly enabled', () => {
+      const logger = createLoggerFromConfig(
+        'TestLogger',
+        'testConfig',
+        'logLevel',
+        'debug',
+        true,
+        undefined,
+        true
+      );
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+  });
+
+  describe('createLoggerWithConfigMonitoring', () => {
+    it('should create logger with config monitoring always enabled', () => {
+      const logger = createLoggerWithConfigMonitoring('TestLogger', 'testConfig');
+      expect(logger.getLevel()).toBe(LogLevel.Info); // default level
     });
   });
 });
