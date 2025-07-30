@@ -37,9 +37,21 @@ export class Logger {
     }
   }
 
+  private async initializeOutputChannel(): Promise<void> {
+    try {
+      // Use dynamic import to avoid bundling vscode
+      const vscode = await eval('import')('vscode');
+      this.outputChannel = vscode.window.createOutputChannel(this.name, { log: true });
+    } catch {
+      // VS Code not available, outputChannel will remain undefined
+      // Logger will fall back to console logging
+    }
+  }
+
   private isVSCodeEnvironment(): boolean {
     try {
-      require('vscode');
+      // Use dynamic import to avoid bundling vscode
+      eval('require')('vscode');
       return true;
     } catch {
       return false;
@@ -134,8 +146,8 @@ export class Logger {
   ): void {
     if (this.isVSCodeEnvironment()) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const vscode = require('vscode');
+        // Use dynamic import to avoid bundling vscode
+        const vscode = eval('require')('vscode');
         const config = vscode.workspace.getConfiguration(configSection);
         const logLevelSetting = config.get(configKey, defaultLevel) as string;
         this.setLevelFromString(logLevelSetting);
@@ -171,8 +183,8 @@ export class Logger {
     // Set up config watcher if in VS Code environment
     if (this.isVSCodeEnvironment()) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const vscode = require('vscode');
+        // Use dynamic import to avoid bundling vscode
+        const vscode = eval('require')('vscode');
 
         // Create configuration change listener
         this.configWatcher = vscode.workspace.onDidChangeConfiguration((event: unknown) => {
@@ -270,8 +282,8 @@ export class Logger {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const vscode = require('vscode');
+      // Use dynamic import to avoid bundling vscode
+      const vscode = eval('require')('vscode');
 
       // Use context.logUri directly - this is the canonical approach
       const logFilePath = vscode.Uri.joinPath(context.logUri, `${channelName}.log`);
@@ -319,7 +331,8 @@ export class Logger {
    */
   private static isVSCodeEnvironmentStatic(): boolean {
     try {
-      require('vscode');
+      // Use dynamic import to avoid bundling vscode
+      eval('require')('vscode');
       return true;
     } catch {
       return false;
