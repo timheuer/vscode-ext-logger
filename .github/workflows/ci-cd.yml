@@ -90,4 +90,4 @@ jobs:
 
       - name: Publish to NPM
         id: publish
-        run: npm publish
+        run: npm publish --access public
