@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 env:
   NODE_VERSION: '20'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,6 +90,4 @@ jobs:
 
       - name: Publish to NPM
         id: publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
