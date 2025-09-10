@@ -54,6 +54,15 @@ jobs:
           path: dist/
           retention-days: 30
 
+      - name: Upload npm logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs-build
+          path: /home/runner/.npm/_logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   publish:
     name: Publish to NPM
     runs-on: ubuntu-latest
@@ -91,3 +100,12 @@ jobs:
       - name: Publish to NPM
         id: publish
         run: npm publish --access public
+
+      - name: Upload npm logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs-publish
+          path: /home/runner/.npm/_logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7
