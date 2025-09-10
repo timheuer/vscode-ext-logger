@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  id-token: write  # Required for OIDC
+  id-token: write # Required for OIDC
   contents: read
 
 env:
@@ -90,6 +90,4 @@ jobs:
 
       - name: Publish to NPM
         id: publish
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
