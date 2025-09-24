@@ -474,17 +474,17 @@ describe('Context Integration', () => {
   describe('Async Output Channel Initialization', () => {
     it('should ensure output channel initialization', async () => {
       const logger = new Logger({ name: 'AsyncTest', outputChannel: false });
-      
+
       // Should complete without error even when VS Code is not available
       await expect(logger.ensureOutputChannel()).resolves.not.toThrow();
     });
 
     it('should not reinitialize already initialized output channel', async () => {
       const logger = new Logger({ name: 'AsyncTest' });
-      
+
       // First call should work
       await logger.ensureOutputChannel();
-      
+
       // Second call should return early without error
       await expect(logger.ensureOutputChannel()).resolves.not.toThrow();
     });
