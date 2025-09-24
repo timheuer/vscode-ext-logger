@@ -17,8 +17,11 @@ export { Logger } from './logger';
 export {
   createLogger,
   createLoggerWithLevel,
+  createLoggerWithLevelAsync,
   createLoggerFromConfig,
+  createLoggerFromConfigAsync,
   createLoggerWithConfigMonitoring,
+  createLoggerWithConfigMonitoringAsync,
 } from './factory';
 
 // Export log contents utilities

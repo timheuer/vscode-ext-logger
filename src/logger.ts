@@ -31,20 +31,39 @@ export class Logger {
     const useOutputChannel = options.outputChannel ?? true;
 
     if (useOutputChannel && this.isVSCodeEnvironment()) {
-      this.initializeOutputChannel().catch(() => {
-        // VSCode not available, continue without output channel
-      });
+      this.initializeOutputChannelSync();
     }
   }
 
-  private async initializeOutputChannel(): Promise<void> {
+  private initializeOutputChannelSync(): void {
     try {
-      // Use dynamic import to avoid bundling vscode
-      const vscode = await eval('import')('vscode');
+      // Use dynamic import to synchronously require vscode
+      const vscode = eval('require')('vscode');
       this.outputChannel = vscode.window.createOutputChannel(this.name, { log: true });
     } catch {
       // VS Code not available, outputChannel will remain undefined
       // Logger will fall back to console logging
+    }
+  }
+
+  /**
+   * Ensure the output channel is initialized. Call this in async activate() if needed.
+   * @returns Promise that resolves when output channel is ready
+   */
+  async ensureOutputChannel(): Promise<void> {
+    if (this.outputChannel) {
+      return; // Already initialized
+    }
+
+    if (this.isVSCodeEnvironment()) {
+      try {
+        // Use dynamic import to avoid bundling vscode
+        const vscode = await eval('import')('vscode');
+        this.outputChannel = vscode.window.createOutputChannel(this.name, { log: true });
+      } catch {
+        // VS Code not available, outputChannel will remain undefined
+        // Logger will fall back to console logging
+      }
     }
   }
 

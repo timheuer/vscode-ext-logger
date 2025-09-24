@@ -46,6 +46,48 @@ logger.debug('Now this will show');
 logger.setLevel(LogLevel.Off);
 ```
 
+## Async Extension Activation
+
+If your VS Code extension uses an `async activate()` method and you need to ensure the output channel is ready immediately, use these strategies:
+
+### Option 1: Sync Initialization (Recommended)
+```typescript
+// Default behavior - output channel is created synchronously
+export async function activate(context: vscode.ExtensionContext) {
+  const logger = new Logger({ name: 'MyExtension', context });
+  logger.info('Ready immediately!'); // Output channel is already available
+}
+```
+
+### Option 2: Async Factory Functions
+```typescript
+import { createLoggerWithLevelAsync, createLoggerFromConfigAsync } from '@timheuer/vscode-ext-logger';
+
+// Guaranteed async output channel initialization
+export async function activate(context: vscode.ExtensionContext) {
+  const logger = await createLoggerWithLevelAsync('MyExtension', 'info', true, context);
+  logger.info('Output channel guaranteed ready!');
+  
+  // Or with config reading
+  const configLogger = await createLoggerFromConfigAsync('MyExt', 'myExt', 'logLevel', 'info', true, context);
+  configLogger.info('Config-based logger ready!');
+}
+```
+
+### Option 3: Explicit Async Initialization
+```typescript
+export async function activate(context: vscode.ExtensionContext) {
+  const logger = new Logger({ name: 'MyExtension', context });
+  await logger.ensureOutputChannel(); // Explicitly ensure ready
+  logger.info('Output channel confirmed ready!');
+}
+```
+
+**Available Async Factory Functions:**
+- `createLoggerWithLevelAsync()` - Basic async logger creation
+- `createLoggerFromConfigAsync()` - Config-based with async initialization  
+- `createLoggerWithConfigMonitoringAsync()` - Config monitoring with async initialization
+
 ### String-Based Log Levels (Simplified Configuration)
 
 For easier configuration management (especially with VS Code settings), you can use string-based log levels:

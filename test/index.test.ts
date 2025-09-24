@@ -4,8 +4,11 @@ import {
   LogLevelUtils,
   createLogger,
   createLoggerWithLevel,
+  createLoggerWithLevelAsync,
   createLoggerFromConfig,
+  createLoggerFromConfigAsync,
   createLoggerWithConfigMonitoring,
+  createLoggerWithConfigMonitoringAsync,
   getLogContentsForChannel,
   getLogContents,
 } from '../src/index';
@@ -465,6 +468,88 @@ describe('Context Integration', () => {
       // Should still fail because we're not in VS Code, but it should accept the context
       expect(result.success).toBe(false);
       expect(result.error).toBe('VS Code environment not available');
+    });
+  });
+
+  describe('Async Output Channel Initialization', () => {
+    it('should ensure output channel initialization', async () => {
+      const logger = new Logger({ name: 'AsyncTest', outputChannel: false });
+      
+      // Should complete without error even when VS Code is not available
+      await expect(logger.ensureOutputChannel()).resolves.not.toThrow();
+    });
+
+    it('should not reinitialize already initialized output channel', async () => {
+      const logger = new Logger({ name: 'AsyncTest' });
+      
+      // First call should work
+      await logger.ensureOutputChannel();
+      
+      // Second call should return early without error
+      await expect(logger.ensureOutputChannel()).resolves.not.toThrow();
+    });
+  });
+
+  describe('Async Factory Functions', () => {
+    it('should create logger with async factory function', async () => {
+      const logger = await createLoggerWithLevelAsync('AsyncLogger', 'debug', false);
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
+    });
+
+    it('should handle output channel initialization in async factory', async () => {
+      // This should complete without error even when VS Code is not available
+      const logger = await createLoggerWithLevelAsync('AsyncLogger', 'info', true);
+      expect(logger.getLevel()).toBe(LogLevel.Info);
+    });
+
+    it('should create logger from config async without monitoring', async () => {
+      const logger = await createLoggerFromConfigAsync(
+        'AsyncConfigLogger',
+        'testSection',
+        'logLevel',
+        'warn',
+        false
+      );
+      // Should use default level since VS Code is not available
+      expect(logger.getLevel()).toBe(LogLevel.Warn);
+    });
+
+    it('should create logger from config async with monitoring', async () => {
+      const logger = await createLoggerFromConfigAsync(
+        'AsyncConfigLogger',
+        'testSection',
+        'logLevel',
+        'error',
+        true,
+        undefined,
+        true
+      );
+      // Should use default level since VS Code is not available
+      expect(logger.getLevel()).toBe(LogLevel.Error);
+    });
+
+    it('should create logger with config monitoring async', async () => {
+      const logger = await createLoggerWithConfigMonitoringAsync(
+        'AsyncMonitorLogger',
+        'testSection',
+        'logLevel',
+        'trace',
+        false
+      );
+      // Should use default level since VS Code is not available
+      expect(logger.getLevel()).toBe(LogLevel.Trace);
+    });
+
+    it('should handle output channel initialization in async config monitoring factory', async () => {
+      // This should complete without error even when VS Code is not available
+      const logger = await createLoggerWithConfigMonitoringAsync(
+        'AsyncMonitorLogger',
+        'testSection',
+        'logLevel',
+        'debug',
+        true
+      );
+      expect(logger.getLevel()).toBe(LogLevel.Debug);
     });
   });
 });
